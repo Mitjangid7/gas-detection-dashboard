@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gas Detection Dashboard</title>
+    <meta name="description"
+        content="Real-time gas detection monitoring dashboard with live gauge, chart, and event log." />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.7);
+            --bg-card-hover: rgba(30, 41, 59, 0.8);
+            --border-color: rgba(255, 255, 255, 0.06);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-safe: #10b981;
+            --accent-safe-glow: rgba(16, 185, 129, 0.3);
+            --accent-warning: #f59e0b;
+            --accent-warning-glow: rgba(245, 158, 11, 0.3);
+            --accent-danger: #ef4444;
+            --accent-danger-glow: rgba(239, 68, 68, 0.4);
+            --accent-blue: #3b82f6;
+            --accent-blue-glow: rgba(59, 130, 246, 0.3);
+            --gauge-track: rgba(255, 255, 255, 0.05);
+            --radius: 16px;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 40%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(16, 185, 129, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.02) 0%, transparent 60%);
+            animation: bgPulse 20s ease-in-out infinite alternate;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        @keyframes bgPulse {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            50% {
+                transform: translate(-2%, 1%) scale(1.02);
+            }
+
+            100% {
+                transform: translate(1%, -1%) scale(1);
+            }
+        }
+
+        /* ─── HEADER ─── */
+        .header {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 40px;
+            border-bottom: 1px solid var(--border-color);
+            backdrop-filter: blur(20px);
+            background: rgba(10, 14, 26, 0.8);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header-title span {
+            color: var(--text-muted);
+            font-weight: 400;
+            font-size: 14px;
+            margin-left: 8px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .connection-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 100px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .connection-badge.connected {
+            border-color: rgba(16, 185, 129, 0.3);
+            color: var(--accent-safe);
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: var(--transition);
+        }
+
+        .connection-badge.connected .connection-dot {
+            background: var(--accent-safe);
+            box-shadow: 0 0 8px var(--accent-safe-glow);
+            animation: dotPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes dotPulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.6;
+                transform: scale(0.8);
+            }
+        }
+
+        .connect-btn {
+            padding: 10px 24px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: white;
+            transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+            letter-spacing: 0.02em;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 25px rgba(59, 130, 246, 0.4);
+        }
+
+        .connect-btn:active {
+            transform: translateY(0);
+        }
+
+        .connect-btn.connected-btn {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-safe);
+            box-shadow: none;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        /* ─── MAIN LAYOUT ─── */
+        .main {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: auto auto;
+            gap: 20px;
+            padding: 28px 40px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* ─── CARDS ─── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            backdrop-filter: blur(20px);
+            transition: var(--transition);
+            overflow: hidden;
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.1);
+            background: var(--bg-card-hover);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px 0;
+        }
+
+        .card-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+
+        .card-badge {
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-safe {
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--accent-safe);
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.12);
+            color: var(--accent-danger);
+            animation: badgePulse 1s ease-in-out infinite;
+        }
+
+        @keyframes badgePulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--accent-warning);
+            animation: badgePulse 1.5s ease-in-out infinite;
+        }
+
+        .badge-idle {
+            background: rgba(100, 116, 139, 0.12);
+            color: var(--text-muted);
+        }
+
+        /* ─── STATUS CARD ─── */
+        .status-card {
+            grid-column: 1;
+            grid-row: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .status-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 24px 24px;
+            gap: 12px;
+        }
+
+        .status-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .status-icon.safe {
+            background: rgba(16, 185, 129, 0.12);
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.15);
+        }
+
+        .status-icon.warning {
+            background: rgba(245, 158, 11, 0.15);
+            box-shadow: 0 0 40px rgba(245, 158, 11, 0.15);
+            animation: warningPulse 1.8s ease-in-out infinite;
+        }
+
+        @keyframes warningPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 40px rgba(245, 158, 11, 0.15);
+            }
+
+            50% {
+                box-shadow: 0 0 55px rgba(245, 158, 11, 0.3);
+            }
+        }
+
+        .status-icon.danger {
+            background: rgba(239, 68, 68, 0.15);
+            box-shadow: 0 0 40px rgba(239, 68, 68, 0.2);
+            animation: dangerPulse 1.2s ease-in-out infinite;
+        }
+
+        .status-icon.idle {
+            background: rgba(100, 116, 139, 0.12);
+        }
+
+        @keyframes dangerPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 40px rgba(239, 68, 68, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 60px rgba(239, 68, 68, 0.4);
+            }
+        }
+
+        .status-text {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .status-sub {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* Stats row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .stat-item {
+            padding: 16px;
+            text-align: center;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .stat-item:last-child {
+            border-right: none;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-value.safe-color {
+            color: var(--accent-safe);
+        }
+
+        .stat-value.danger-color {
+            color: var(--accent-danger);
+        }
+
+        .stat-value.warning-color {
+            color: var(--accent-warning);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        /* ─── GAUGE CARD ─── */
+        .gauge-card {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .gauge-body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 24px 20px;
+        }
+
+        .gauge-container {
+            position: relative;
+            width: 220px;
+            height: 140px;
+            overflow: hidden;
+        }
+
+        .gauge-svg {
+            width: 220px;
+            height: 140px;
+        }
+
+        .gauge-track {
+            fill: none;
+            stroke: var(--gauge-track);
+            stroke-width: 18;
+            stroke-linecap: round;
+        }
+
+        .gauge-fill {
+            fill: none;
+            stroke-width: 18;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                stroke 0.5s ease;
+            filter: drop-shadow(0 0 8px var(--accent-safe-glow));
+        }
+
+        .gauge-value-text {
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        .gauge-number {
+            font-size: 42px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            transition: color 0.5s ease;
+        }
+
+        .gauge-unit {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-top: 2px;
+        }
+
+        .gauge-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 8px 10px 0;
+        }
+
+        .gauge-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .gauge-zones {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .zone {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .zone-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* ─── METRICS CARD ─── */
+        .metrics-card {
+            grid-column: 3;
+            grid-row: 1;
+        }
+
+        .metrics-body {
+            padding: 20px 24px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .metric-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            transition: var(--transition);
+        }
+
+        .metric-row:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .metric-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .metric-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .metric-icon.blue {
+            background: rgba(59, 130, 246, 0.12);
+        }
+
+        .metric-icon.green {
+            background: rgba(16, 185, 129, 0.12);
+        }
+
+        .metric-icon.orange {
+            background: rgba(245, 158, 11, 0.12);
+        }
+
+        .metric-icon.red {
+            background: rgba(239, 68, 68, 0.12);
+        }
+
+        .metric-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ─── CHART CARD ─── */
+        .chart-card {
+            grid-column: 1 / 3;
+            grid-row: 2;
+        }
+
+        .chart-body {
+            padding: 16px 24px 20px;
+            height: 260px;
+            position: relative;
+        }
+
+        #gasChart {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ─── EVENT LOG CARD ─── */
+        .log-card {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        .log-body {
+            padding: 8px 16px 16px;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .log-body::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .log-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .log-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .log-entry {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+            animation: slideIn 0.3s ease;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .log-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 5px;
+            flex-shrink: 0;
+        }
+
+        .log-dot.safe {
+            background: var(--accent-safe);
+        }
+
+        .log-dot.warning {
+            background: var(--accent-warning);
+            box-shadow: 0 0 6px var(--accent-warning-glow);
+        }
+
+        .log-dot.danger {
+            background: var(--accent-danger);
+            box-shadow: 0 0 6px var(--accent-danger-glow);
+        }
+
+        .log-dot.info {
+            background: var(--accent-blue);
+        }
+
+        .log-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .log-message {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        .log-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .log-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .log-empty-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        /* ─── DANGER / WARNING OVERLAY ─── */
+        .alert-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .alert-overlay.danger {
+            opacity: 1;
+            animation: dangerFlash 2s ease-in-out infinite;
+        }
+
+        .alert-overlay.warning {
+            opacity: 1;
+            animation: warningFlash 3s ease-in-out infinite;
+        }
+
+        @keyframes dangerFlash {
+
+            0%,
+            100% {
+                box-shadow: inset 0 0 80px rgba(239, 68, 68, 0.08);
+            }
+
+            50% {
+                box-shadow: inset 0 0 120px rgba(239, 68, 68, 0.15);
+            }
+        }
+
+        @keyframes warningFlash {
+
+            0%,
+            100% {
+                box-shadow: inset 0 0 60px rgba(245, 158, 11, 0.05);
+            }
+
+            50% {
+                box-shadow: inset 0 0 90px rgba(245, 158, 11, 0.1);
+            }
+        }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 1200px) {
+            .main {
+                grid-template-columns: 1fr 1fr;
+                padding: 20px;
+            }
+
+            .status-card {
+                grid-column: 1;
+                grid-row: 1;
+            }
+
+            .gauge-card {
+                grid-column: 2;
+                grid-row: 1;
+            }
+
+            .metrics-card {
+                grid-column: 1 / 3;
+                grid-row: 2;
+            }
+
+            .chart-card {
+                grid-column: 1 / 3;
+                grid-row: 3;
+            }
+
+            .log-card {
+                grid-column: 1 / 3;
+                grid-row: 4;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main {
+                grid-template-columns: 1fr;
+                padding: 16px;
+            }
+
+            .main>* {
+                grid-column: 1 !important;
+                grid-row: auto !important;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 16px;
+                padding: 16px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="alert-overlay" id="alertOverlay"></div>
+
+    <!-- ─── HEADER ─── -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo-icon">🔬</div>
+            <div>
+                <div class="header-title">Gas Detection System <span>v2.0</span></div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="connection-badge" id="connectionBadge">
+                <div class="connection-dot"></div>
+                <span id="connectionText">Disconnected</span>
+            </div>
+            <button class="connect-btn" id="connectBtn" onclick="connect()">Connect Arduino</button>
+        </div>
+    </header>
+
+    <!-- ─── MAIN DASHBOARD ─── -->
+    <main class="main">
+
+        <!-- STATUS CARD -->
+        <div class="card status-card">
+            <div class="card-header">
+                <span class="card-title">System Status</span>
+                <span class="card-badge badge-idle" id="statusBadge">Offline</span>
+            </div>
+            <div class="status-body">
+                <div class="status-icon idle" id="statusIcon">🔌</div>
+                <div class="status-text" id="statusText">Not Connected</div>
+                <div class="status-sub" id="statusSub">Connect your Arduino to begin monitoring</div>
+            </div>
+            <div class="stats-row">
+                <div class="stat-item">
+                    <div class="stat-value" id="statUptime">--:--</div>
+                    <div class="stat-label">Uptime</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value danger-color" id="statAlerts">0</div>
+                    <div class="stat-label">Alerts</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value safe-color" id="statSafe">0</div>
+                    <div class="stat-label">Safe %</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GAUGE CARD -->
+        <div class="card gauge-card">
+            <div class="card-header">
+                <span class="card-title">Gas Level</span>
+                <span class="card-badge badge-idle" id="gaugeBadge">N/A</span>
+            </div>
+            <div class="gauge-body">
+                <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 220 140">
+                        <!-- Track -->
+                        <path class="gauge-track" d="M 25 125 A 85 85 0 0 1 195 125" />
+                        <!-- Fill -->
+                        <path class="gauge-fill" id="gaugeFill" d="M 25 125 A 85 85 0 0 1 195 125"
+                            stroke="var(--accent-safe)" stroke-dasharray="267" stroke-dashoffset="267" />
+                    </svg>
+                    <div class="gauge-value-text">
+                        <div class="gauge-number" id="gaugeNumber">0</div>
+                        <div class="gauge-unit">Analog</div>
+                    </div>
+                </div>
+                <div class="gauge-labels">
+                    <span class="gauge-label">0</span>
+                    <span class="gauge-label">512</span>
+                    <span class="gauge-label">1023</span>
+                </div>
+                <div class="gauge-zones">
+                    <div class="zone">
+                        <div class="zone-dot" style="background:var(--accent-safe)"></div> Safe (&lt;150)
+                    </div>
+                    <div class="zone">
+                        <div class="zone-dot" style="background:var(--accent-warning)"></div> Warning (150‑249)
+                    </div>
+                    <div class="zone">
+                        <div class="zone-dot" style="background:var(--accent-danger)"></div> Danger (≥250)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- METRICS CARD -->
+        <div class="card metrics-card">
+            <div class="card-header">
+                <span class="card-title">Sensor Metrics</span>
+            </div>
+            <div class="metrics-body">
+                <div class="metric-row">
+                    <div class="metric-left">
+                        <div class="metric-icon blue">📊</div>
+                        <span class="metric-name">Current Reading</span>
+                    </div>
+                    <span class="metric-value" id="metricCurrent">--</span>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-left">
+                        <div class="metric-icon green">📈</div>
+                        <span class="metric-name">Peak Level</span>
+                    </div>
+                    <span class="metric-value" id="metricPeak">--</span>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-left">
+                        <div class="metric-icon orange">📉</div>
+                        <span class="metric-name">Average Level</span>
+                    </div>
+                    <span class="metric-value" id="metricAvg">--</span>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-left">
+                        <div class="metric-icon red">⏱️</div>
+                        <span class="metric-name">Last Alert</span>
+                    </div>
+                    <span class="metric-value" id="metricLastAlert" style="font-size:13px;">Never</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHART CARD -->
+        <div class="card chart-card">
+            <div class="card-header">
+                <span class="card-title">Real-Time Gas Level</span>
+                <span class="card-badge badge-idle" id="chartBadge">Since connected</span>
+            </div>
+            <div class="chart-body">
+                <canvas id="gasChart"></canvas>
+            </div>
+        </div>
+
+        <!-- EVENT LOG CARD -->
+        <div class="card log-card">
+            <div class="card-header">
+                <span class="card-title">Event Log</span>
+                <span class="card-badge badge-idle" id="logCount">0 events</span>
+            </div>
+            <div class="log-body" id="logBody">
+                <div class="log-empty">
+                    <div class="log-empty-icon">📋</div>
+                    No events recorded yet
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // ═══════════════════════════════════════════════
+        //  THRESHOLDS — match Arduino sketch exactly
+        //    < 150   → SAFE   (green LED on)
+        //    150-249 → WARNING (red LED + alert blink)
+        //    >= 250  → DANGER  (red LED + alert on)
+        // ═══════════════════════════════════════════════
+        const THRESHOLD_WARNING = 150;
+        const THRESHOLD_DANGER = 250;
+        const ANALOG_MAX = 1023;
+
+        // ─── STATE ───
+        let port;
+        let lastState = null;       // 'safe' | 'warning' | 'danger'
+        let isConnected = false;
+        let connectTime = null;
+        let alertCount = 0;         // warnings + dangers
+        let safeCount = 0;
+        let totalReadings = 0;
+        let currentLevel = 0;
+        let peakLevel = 0;
+        let sumLevels = 0;
+        let lastAlertTime = null;
+        const chartData = [];           // Array of { value, time } objects
+        const eventLog = [];
+        let lineBuffer = "";
+
+        // ─── DOM REFS ───
+        const $ = id => document.getElementById(id);
+
+        // ═══════════════════════════════════════════════
+        //  CHART (Canvas)
+        // ═══════════════════════════════════════════════
+        const canvas = $('gasChart');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            drawChart();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 100);
+
+        function drawChart() {
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const padLeft = 48, padRight = 16, padTop = 16, padBottom = 36;
+            const chartW = w - padLeft - padRight;
+            const chartH = h - padTop - padBottom;
+
+            // Y-axis grid lines (0 … 500)
+            const CHART_MAX = 500;
+            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+            ctx.lineWidth = 1;
+            const gridLines = [0, 100, 200, 300, 400, 500];
+            gridLines.forEach(val => {
+                const y = padTop + chartH - (val / CHART_MAX) * chartH;
+                ctx.beginPath();
+                ctx.moveTo(padLeft, y);
+                ctx.lineTo(padLeft + chartW, y);
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                ctx.font = '10px Inter, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(val, padLeft - 8, y + 3);
+            });
+
+            // ── TIME WINDOW: from connection start to now ──
+            const now = Date.now();
+            const timeStart = connectTime || now;
+            const elapsed = now - timeStart;
+            // Minimum window of 60s so the chart doesn't look cramped at the start
+            const windowMs = Math.max(elapsed, 60 * 1000);
+            const timeEnd = timeStart + windowMs;
+
+            // X-axis time labels (dynamically spaced)
+            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            // Choose label count based on elapsed time
+            const labelCount = Math.min(7, Math.max(3, Math.floor(elapsed / (5 * 60 * 1000)) + 2));
+            for (let i = 0; i < labelCount; i++) {
+                const frac = i / (labelCount - 1);
+                const x = padLeft + frac * chartW;
+                const t = new Date(timeStart + frac * windowMs);
+                const label = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+                // Vertical grid line
+                ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x, padTop);
+                ctx.lineTo(x, padTop + chartH);
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                ctx.fillText(label, x, padTop + chartH + 16);
+            }
+
+            // Use all chart data (already pruned to post-connection)
+            const data = chartData;
+
+            if (data.length < 2) {
+                ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                ctx.font = '13px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Waiting for data...', w / 2, h / 2);
+                return;
+            }
+
+            // Danger zone background
+            const dangerY = padTop + chartH - (THRESHOLD_DANGER / CHART_MAX) * chartH;
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.04)';
+            ctx.fillRect(padLeft, padTop, chartW, dangerY - padTop);
+
+            // Warning zone background
+            const warningY = padTop + chartH - (THRESHOLD_WARNING / CHART_MAX) * chartH;
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.03)';
+            ctx.fillRect(padLeft, dangerY, chartW, warningY - dangerY);
+
+            // Danger threshold line
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)';
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(padLeft, dangerY);
+            ctx.lineTo(padLeft + chartW, dangerY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.5)';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('DANGER ≥ 250', padLeft + 4, dangerY - 5);
+
+            // Warning threshold line
+            ctx.strokeStyle = 'rgba(245, 158, 11, 0.25)';
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(padLeft, warningY);
+            ctx.lineTo(padLeft + chartW, warningY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.45)';
+            ctx.fillText('WARNING ≥ 150', padLeft + 4, warningY - 5);
+
+            // Data line — position each point based on its timestamp
+            ctx.beginPath();
+            data.forEach((d, i) => {
+                const timeFrac = (d.time - timeStart) / windowMs;
+                const x = padLeft + timeFrac * chartW;
+                const clampedVal = Math.min(d.value, CHART_MAX);
+                const y = padTop + chartH - (clampedVal / CHART_MAX) * chartH;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+
+            const lastVal = data[data.length - 1].value;
+            let lineColor;
+            if (lastVal < THRESHOLD_WARNING) lineColor = '#10b981';
+            else if (lastVal < THRESHOLD_DANGER) lineColor = '#f59e0b';
+            else lineColor = '#ef4444';
+
+            ctx.strokeStyle = lineColor;
+            ctx.lineWidth = 2.5;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Area fill
+            const lastD = data[data.length - 1];
+            const lastDataX = padLeft + ((lastD.time - timeStart) / windowMs) * chartW;
+            ctx.lineTo(lastDataX, padTop + chartH);
+            const firstDataX = padLeft + ((data[0].time - timeStart) / windowMs) * chartW;
+            ctx.lineTo(firstDataX, padTop + chartH);
+            ctx.closePath();
+
+            const gradient = ctx.createLinearGradient(0, padTop, 0, padTop + chartH);
+            if (lastVal < THRESHOLD_WARNING) {
+                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.15)');
+                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.01)');
+            } else if (lastVal < THRESHOLD_DANGER) {
+                gradient.addColorStop(0, 'rgba(245, 158, 11, 0.15)');
+                gradient.addColorStop(1, 'rgba(245, 158, 11, 0.01)');
+            } else {
+                gradient.addColorStop(0, 'rgba(239, 68, 68, 0.15)');
+                gradient.addColorStop(1, 'rgba(239, 68, 68, 0.01)');
+            }
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Current-value dot
+            const dotY = padTop + chartH - (Math.min(lastVal, CHART_MAX) / CHART_MAX) * chartH;
+            ctx.beginPath();
+            ctx.arc(lastDataX, dotY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = lineColor;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(lastDataX, dotY, 8, 0, Math.PI * 2);
+            ctx.strokeStyle = lineColor;
+            ctx.lineWidth = 1.5;
+            ctx.globalAlpha = 0.4;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+
+        // ═══════════════════════════════════════════════
+        //  GAUGE (SVG half-circle)
+        // ═══════════════════════════════════════════════
+        function updateGauge(value) {
+            const clamped = Math.min(Math.max(value, 0), ANALOG_MAX);
+            const pct = clamped / ANALOG_MAX;
+            const totalArc = 267;
+            const offset = totalArc - (pct * totalArc);
+
+            const fill = $('gaugeFill');
+            fill.setAttribute('stroke-dashoffset', offset);
+
+            let color, glow;
+            if (clamped < THRESHOLD_WARNING) {
+                color = 'var(--accent-safe)';
+                glow = 'var(--accent-safe-glow)';
+            } else if (clamped < THRESHOLD_DANGER) {
+                color = 'var(--accent-warning)';
+                glow = 'var(--accent-warning-glow)';
+            } else {
+                color = 'var(--accent-danger)';
+                glow = 'var(--accent-danger-glow)';
+            }
+            fill.setAttribute('stroke', color);
+            fill.style.filter = `drop-shadow(0 0 10px ${glow})`;
+
+            $('gaugeNumber').textContent = Math.round(clamped);
+            $('gaugeNumber').style.color = color;
+        }
+
+        // ═══════════════════════════════════════════════
+        //  STATUS UPDATE  (called on every serial reading)
+        // ═══════════════════════════════════════════════
+        function updateStatus(state, level) {
+            // state: 'safe' | 'warning' | 'danger'
+            const icon = $('statusIcon');
+            const text = $('statusText');
+            const sub = $('statusSub');
+            const badge = $('statusBadge');
+            const gaugeBadge = $('gaugeBadge');
+            const overlay = $('alertOverlay');
+
+            totalReadings++;
+
+            // ── DANGER ──
+            if (state === 'danger') {
+                icon.className = 'status-icon danger';
+                icon.textContent = '🚨';
+                text.textContent = 'GAS DETECTED — DANGER';
+                text.style.color = 'var(--accent-danger)';
+                sub.textContent = `Analog reading: ${level} — Take immediate action!`;
+                badge.className = 'card-badge badge-danger';
+                badge.textContent = 'DANGER';
+                gaugeBadge.className = 'card-badge badge-danger';
+                gaugeBadge.textContent = 'High';
+                overlay.className = 'alert-overlay danger';
+
+                if (lastState !== 'danger') {
+                    alertCount++;
+                    $('statAlerts').textContent = alertCount;
+                    lastAlertTime = new Date();
+                    $('metricLastAlert').textContent = formatTime(lastAlertTime);
+                    playAlarm();
+                    addEventLog('danger', `🚨 DANGER! Gas level critical: ${level}`);
+                }
+                lastState = 'danger';
+
+                // ── WARNING ──
+            } else if (state === 'warning') {
+                icon.className = 'status-icon warning';
+                icon.textContent = '⚠️';
+                text.textContent = 'ELEVATED — WARNING';
+                text.style.color = 'var(--accent-warning)';
+                sub.textContent = `Analog reading: ${level} — Monitor closely`;
+                badge.className = 'card-badge badge-warning';
+                badge.textContent = 'WARNING';
+                gaugeBadge.className = 'card-badge badge-warning';
+                gaugeBadge.textContent = 'Elevated';
+                overlay.className = 'alert-overlay warning';
+
+                if (lastState !== 'warning') {
+                    alertCount++;
+                    $('statAlerts').textContent = alertCount;
+                    lastAlertTime = new Date();
+                    $('metricLastAlert').textContent = formatTime(lastAlertTime);
+                    playBeep();
+                    addEventLog('warning', `⚠️ Warning — gas level elevated: ${level}`);
+                }
+                lastState = 'warning';
+
+                // ── SAFE ──
+            } else {
+                icon.className = 'status-icon safe';
+                icon.textContent = '✅';
+                text.textContent = 'ALL CLEAR';
+                text.style.color = 'var(--accent-safe)';
+                sub.textContent = `Analog reading: ${level} — Environment is safe`;
+                badge.className = 'card-badge badge-safe';
+                badge.textContent = 'Safe';
+                gaugeBadge.className = 'card-badge badge-safe';
+                gaugeBadge.textContent = 'Normal';
+                overlay.className = 'alert-overlay';
+
+                if (lastState === 'danger' || lastState === 'warning') {
+                    addEventLog('safe', `✅ Returned to safe — level: ${level}`);
+                }
+                safeCount++;
+                lastState = 'safe';
+            }
+
+            // ── METRICS ──
+            const numLevel = Number(level);
+            currentLevel = numLevel;
+            if (numLevel > peakLevel) peakLevel = numLevel;
+            sumLevels += numLevel;
+            const avg = Math.round(sumLevels / totalReadings);
+
+            $('metricCurrent').textContent = level;
+            $('metricPeak').textContent = peakLevel;
+            $('metricAvg').textContent = avg;
+
+            const safePct = totalReadings > 0
+                ? Math.round((safeCount / totalReadings) * 100)
+                : 0;
+            $('statSafe').textContent = safePct + '%';
+
+            // ── CHART + GAUGE ──
+            chartData.push({ value: numLevel, time: Date.now() });
+            drawChart();
+            updateGauge(level);
+        }
+
+        // ═══════════════════════════════════════════════
+        //  EVENT LOG
+        // ═══════════════════════════════════════════════
+        function addEventLog(type, message) {
+            eventLog.unshift({ type, message, time: new Date() });
+            if (eventLog.length > 50) eventLog.pop();
+            renderLog();
+        }
+
+        function renderLog() {
+            const body = $('logBody');
+            if (eventLog.length === 0) {
+                body.innerHTML = '<div class="log-empty"><div class="log-empty-icon">📋</div>No events recorded yet</div>';
+                $('logCount').textContent = '0 events';
+                return;
+            }
+            $('logCount').textContent = eventLog.length + ' event' + (eventLog.length !== 1 ? 's' : '');
+            body.innerHTML = eventLog.map(e => `
+    <div class="log-entry">
+      <div class="log-dot ${e.type}"></div>
+      <div class="log-content">
+        <div class="log-message">${e.message}</div>
+        <div class="log-time">${formatTimeFull(e.time)}</div>
+      </div>
+    </div>
+  `).join('');
+        }
+
+        // ═══════════════════════════════════════════════
+        //  HELPERS
+        // ═══════════════════════════════════════════════
+        function formatTime(d) {
+            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        function formatTimeFull(d) {
+            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                + ' · ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        // 🔊 Danger alarm  (triple beep — 880 Hz)
+        function playAlarm() {
+            const alarm = new Audio("alarm.mp3");
+            alarm.volume = 1;
+            alarm.play();
+        }
+
+        // 🔔 Warning beep  (single beep — 660 Hz)
+        function playBeep() {
+            const beep = new Audio("alarm.mp3");
+            beep.volume = 0.7;
+            beep.play();
+        }
+
+        // ─── UPTIME TIMER ───
+        setInterval(() => {
+            if (!connectTime) return;
+            const diff = Math.floor((Date.now() - connectTime) / 1000);
+            const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+            const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+            const s = String(diff % 60).padStart(2, '0');
+            $('statUptime').textContent = h === '00' ? `${m}:${s}` : `${h}:${m}:${s}`;
+        }, 1000);
+
+        // ═══════════════════════════════════════════════
+        //  SERIAL CONNECTION  (Web Serial API)
+        //  Arduino sends: Serial.println(gasValue)
+        //  gasValue = analogRead(A0) → integer 0–1023
+        // ═══════════════════════════════════════════════
+        async function connect() {
+            if (isConnected) return;
+
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 9600 });
+
+                isConnected = true;
+                connectTime = Date.now();
+
+                // Update connection UI
+                $('connectionBadge').classList.add('connected');
+                $('connectionText').textContent = 'Connected';
+                $('connectBtn').textContent = '✓ Connected';
+                $('connectBtn').classList.add('connected-btn');
+
+                addEventLog('info', '🔗 Arduino connected — monitoring started');
+
+                const decoder = new TextDecoderStream();
+                port.readable.pipeTo(decoder.writable);
+                const reader = decoder.readable.getReader();
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    // Buffer and split by newlines (Arduino uses Serial.println)
+                    lineBuffer += value;
+                    const lines = lineBuffer.split(/\r?\n/);
+                    lineBuffer = lines.pop(); // keep incomplete tail
+
+                    for (const line of lines) {
+                        const text = line.trim();
+                        if (!text) continue;
+
+                        const gasValue = parseInt(text, 10);
+                        if (isNaN(gasValue)) continue;          // skip garbage
+
+                        console.log('Gas reading:', gasValue);
+
+                        // Classify using Arduino thresholds
+                        let state;
+                        if (gasValue >= THRESHOLD_DANGER) {
+                            state = 'danger';
+                        } else if (gasValue >= THRESHOLD_WARNING) {
+                            state = 'warning';
+                        } else {
+                            state = 'safe';
+                        }
+
+                        updateStatus(state, gasValue);
+                    }
+                }
+
+            } catch (err) {
+                console.error('Connection error:', err);
+                addEventLog('danger', `❌ Connection failed: ${err.message}`);
+            }
+        }
+    </script>
+
+</body>
+
+</html>
