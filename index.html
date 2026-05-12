@@ -1420,6 +1420,42 @@
         //  Arduino sends: Serial.println(gasValue)
         //  gasValue = analogRead(A0) → integer 0–1023
         // ═══════════════════════════════════════════════
+        function startFirebaseListener() {
+
+            firebaseOnValue(
+                firebaseRef(firebaseDB, 'gasData'),
+                (snapshot) => {
+
+                    const data = snapshot.val();
+
+                    if (!data) return;
+
+                    $('metricCurrent').textContent = data.value;
+
+                    updateGauge(data.value);
+
+                    chartData.push({
+                        value: data.value,
+                        time: Date.now()
+                    });
+
+                    drawChart();
+
+                    if (data.state === 'danger') {
+                        $('statusText').textContent = 'GAS DETECTED — DANGER';
+                        $('statusText').style.color = 'var(--accent-danger)';
+                    }
+                    else if (data.state === 'warning') {
+                        $('statusText').textContent = 'ELEVATED — WARNING';
+                        $('statusText').style.color = 'var(--accent-warning)';
+                    }
+                    else {
+                        $('statusText').textContent = 'ALL CLEAR';
+                        $('statusText').style.color = 'var(--accent-safe)';
+                    }
+                }
+            );
+        }
         async function connect() {
             if (isConnected) return;
 
@@ -1463,7 +1499,7 @@
 
                         // Classify using Arduino thresholds
                         let state;
-                        if (gasValue >= THRESHOLD_DANGER!) {
+                        if (gasValue >= THRESHOLD_DANGER) {
                             state = 'danger';
                         } else if (gasValue >= THRESHOLD_WARNING) {
                             state = 'warning';
@@ -1480,45 +1516,9 @@
                 addEventLog('danger', `❌ Connection failed: ${err.message}`);
             }
         }
-        if (!isUploader) {
-            firebaseOnValue(
-                firebaseRef(firebaseDB, 'gasData'),
-                (snapshot) => {
-
-                    const data = snapshot.val();
-
-                    if (!data) return;
-
-                    // Update display only
-                    $('metricCurrent').textContent = data.value;
-
-                    updateGauge(data.value);
-
-                    chartData.push({
-                        value: data.value,
-                        time: Date.now()
-                    });
-
-                    drawChart();
-
-                    // Status text/colors
-                    if (data.state === 'danger') {
-                        $('statusText').textContent = 'GAS DETECTED — DANGER';
-                        $('statusText').style.color = 'var(--accent-danger)';
-                    }
-                    else if (data.state === 'warning') {
-                        $('statusText').textContent = 'ELEVATED — WARNING';
-                        $('statusText').style.color = 'var(--accent-warning)';
-                    }
-                    else {
-                        $('statusText').textContent = 'ALL CLEAR';
-                        $('statusText').style.color = 'var(--accent-safe)';
-                    }
-                }
-            );
-        }
+        startFirebaseListener();
     </script>
-
+console.log("NEW VERSION LOADED");
 </body>
 
 </html>
