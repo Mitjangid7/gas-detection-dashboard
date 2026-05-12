@@ -1430,29 +1430,94 @@
 
                     if (!data) return;
 
-                    $('metricCurrent').textContent = data.value;
+                    const level = Number(data.value);
+                    const state = data.state;
 
-                    updateGauge(data.value);
+                    // Update main status
+                    const icon = $('statusIcon');
+                    const text = $('statusText');
+                    const sub = $('statusSub');
+                    const badge = $('statusBadge');
+                    const gaugeBadge = $('gaugeBadge');
+                    const overlay = $('alertOverlay');
 
+                    if (state === 'danger') {
+
+                        icon.className = 'status-icon danger';
+                        icon.textContent = '🚨';
+
+                        text.textContent = 'GAS DETECTED — DANGER';
+                        text.style.color = 'var(--accent-danger)';
+
+                        sub.textContent =
+                            `Analog reading: ${level} — Take immediate action!`;
+
+                        badge.className = 'card-badge badge-danger';
+                        badge.textContent = 'DANGER';
+
+                        gaugeBadge.className = 'card-badge badge-danger';
+                        gaugeBadge.textContent = 'High';
+
+                        overlay.className = 'alert-overlay danger';
+
+                    }
+                    else if (state === 'warning') {
+
+                        icon.className = 'status-icon warning';
+                        icon.textContent = '⚠️';
+
+                        text.textContent = 'ELEVATED — WARNING';
+                        text.style.color = 'var(--accent-warning)';
+
+                        sub.textContent =
+                            `Analog reading: ${level} — Monitor closely`;
+
+                        badge.className = 'card-badge badge-warning';
+                        badge.textContent = 'WARNING';
+
+                        gaugeBadge.className = 'card-badge badge-warning';
+                        gaugeBadge.textContent = 'Elevated';
+
+                        overlay.className = 'alert-overlay warning';
+
+                    }
+                    else {
+
+                        icon.className = 'status-icon safe';
+                        icon.textContent = '✅';
+
+                        text.textContent = 'ALL CLEAR';
+                        text.style.color = 'var(--accent-safe)';
+
+                        sub.textContent =
+                            `Analog reading: ${level} — Environment is safe`;
+
+                        badge.className = 'card-badge badge-safe';
+                        badge.textContent = 'Safe';
+
+                        gaugeBadge.className = 'card-badge badge-safe';
+                        gaugeBadge.textContent = 'Normal';
+
+                        overlay.className = 'alert-overlay';
+                    }
+
+                    // Metrics
+                    $('metricCurrent').textContent = level;
+
+                    // Gauge
+                    updateGauge(level);
+
+                    // Chart
                     chartData.push({
-                        value: data.value,
+                        value: level,
                         time: Date.now()
                     });
 
-                    drawChart();
+                    if (chartData.length > 50) {
+                        chartData.shift();
+                    }
 
-                    if (data.state === 'danger') {
-                        $('statusText').textContent = 'GAS DETECTED — DANGER';
-                        $('statusText').style.color = 'var(--accent-danger)';
-                    }
-                    else if (data.state === 'warning') {
-                        $('statusText').textContent = 'ELEVATED — WARNING';
-                        $('statusText').style.color = 'var(--accent-warning)';
-                    }
-                    else {
-                        $('statusText').textContent = 'ALL CLEAR';
-                        $('statusText').style.color = 'var(--accent-safe)';
-                    }
+                    drawChart();
                 }
             );
         }
@@ -1517,8 +1582,9 @@
             }
         }
         startFirebaseListener();
+
     </script>
-console.log("NEW VERSION LOADED");
+
 </body>
 
 </html>
