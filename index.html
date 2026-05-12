@@ -1013,6 +1013,7 @@
         let port;
         let lastState = null;       // 'safe' | 'warning' | 'danger'
         let isConnected = false;
+        let isUploader = false;
         let connectTime = null;
         let alertCount = 0;         // warnings + dangers
         let safeCount = 0;
@@ -1419,6 +1420,42 @@
         //  Arduino sends: Serial.println(gasValue)
         //  gasValue = analogRead(A0) → integer 0–1023
         // ═══════════════════════════════════════════════
+        function startFirebaseListener() {
+
+        firebaseOnValue(
+            firebaseRef(firebaseDB, 'gasData'),
+            (snapshot) => {
+
+                const data = snapshot.val();
+
+                if (!data) return;
+
+                $('metricCurrent').textContent = data.value;
+
+                updateGauge(data.value);
+
+                chartData.push({
+                    value: data.value,
+                    time: Date.now()
+                });
+
+                drawChart();
+
+                if (data.state === 'danger') {
+                    $('statusText').textContent = 'GAS DETECTED — DANGER';
+                    $('statusText').style.color = 'var(--accent-danger)';
+                }
+                else if (data.state === 'warning') {
+                    $('statusText').textContent = 'ELEVATED — WARNING';
+                    $('statusText').style.color = 'var(--accent-warning)';
+                }
+                else {
+                    $('statusText').textContent = 'ALL CLEAR';
+                    $('statusText').style.color = 'var(--accent-safe)';
+                }
+            }
+        );
+    }
         async function connect() {
             if (isConnected) return;
 
@@ -1427,6 +1464,7 @@
                 await port.open({ baudRate: 9600 });
 
                 isConnected = true;
+                isUploader = true;
                 connectTime = Date.now();
 
                 // Update connection UI
@@ -1478,41 +1516,9 @@
                 addEventLog('danger', `❌ Connection failed: ${err.message}`);
             }
         }
-        firebaseOnValue(
-            firebaseRef(firebaseDB, 'gasData'),
-            (snapshot) => {
-
-                const data = snapshot.val();
-
-                if (!data) return;
-
-                // Update display only
-                $('metricCurrent').textContent = data.value;
-
-                updateGauge(data.value);
-
-                chartData.push({
-                    value: data.value,
-                    time: Date.now()
-                });
-
-                drawChart();
-
-                // Status text/colors
-                if (data.state === 'danger') {
-                    $('statusText').textContent = 'GAS DETECTED — DANGER';
-                    $('statusText').style.color = 'var(--accent-danger)';
-                }
-                else if (data.state === 'warning') {
-                    $('statusText').textContent = 'ELEVATED — WARNING';
-                    $('statusText').style.color = 'var(--accent-warning)';
-                }
-                else {
-                    $('statusText').textContent = 'ALL CLEAR';
-                    $('statusText').style.color = 'var(--accent-safe)';
-                }
-            }
-        );
+    if (!navigator.serial) {
+        startFirebaseListener();
+    }
     </script>
 
 </body>
