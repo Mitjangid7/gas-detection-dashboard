@@ -968,7 +968,36 @@
         </div>
 
     </main>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
 
+        import {
+            getDatabase,
+            ref,
+            set,
+            onValue
+        } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCkKFtTtYCZ76XzUiDA3jX9SebQC_r-f-A",
+            authDomain: "gas-detection-dashboard.firebaseapp.com",
+            databaseURL: "https://gas-detection-dashboard-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "gas-detection-dashboard",
+            storageBucket: "gas-detection-dashboard.firebasestorage.app",
+            messagingSenderId: "216156113868",
+            appId: "1:216156113868:web:f6a36e0b93152b8a2c2b69",
+            measurementId: "G-389HNG5TY0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+
+        const db = getDatabase(app);
+
+        window.firebaseDB = db;
+        window.firebaseRef = ref;
+        window.firebaseSet = set;
+        window.firebaseOnValue = onValue;
+    </script>
     <script>
         // ═══════════════════════════════════════════════
         //  THRESHOLDS — match Arduino sketch exactly
@@ -1217,6 +1246,14 @@
         // ═══════════════════════════════════════════════
         function updateStatus(state, level) {
             // state: 'safe' | 'warning' | 'danger'
+            firebaseSet(
+                firebaseRef(firebaseDB, 'gasData'),
+                {
+                    value: level,
+                    state: state,
+                    time: Date.now()
+                }
+            );
             const icon = $('statusIcon');
             const text = $('statusText');
             const sub = $('statusSub');
@@ -1441,6 +1478,41 @@
                 addEventLog('danger', `❌ Connection failed: ${err.message}`);
             }
         }
+        firebaseOnValue(
+            firebaseRef(firebaseDB, 'gasData'),
+            (snapshot) => {
+
+                const data = snapshot.val();
+
+                if (!data) return;
+
+                // Update display only
+                $('metricCurrent').textContent = data.value;
+
+                updateGauge(data.value);
+
+                chartData.push({
+                    value: data.value,
+                    time: Date.now()
+                });
+
+                drawChart();
+
+                // Status text/colors
+                if (data.state === 'danger') {
+                    $('statusText').textContent = 'GAS DETECTED — DANGER';
+                    $('statusText').style.color = 'var(--accent-danger)';
+                }
+                else if (data.state === 'warning') {
+                    $('statusText').textContent = 'ELEVATED — WARNING';
+                    $('statusText').style.color = 'var(--accent-warning)';
+                }
+                else {
+                    $('statusText').textContent = 'ALL CLEAR';
+                    $('statusText').style.color = 'var(--accent-safe)';
+                }
+            }
+        );
     </script>
 
 </body>
